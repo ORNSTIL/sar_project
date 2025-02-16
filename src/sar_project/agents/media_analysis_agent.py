@@ -16,63 +16,61 @@ class MediaAnalysisAgent(SARBaseAgent):
             role="Media Analysis Agent",
             system_message="""You monitor and analyze online media sources (news articles, social media) to extract and summarize 
             information relevant to SAR missions. Your role is to:
-            1. Search for SAR-related articles from news sources.
-            2. Scrape articles that contain relevant SAR keywords.
-            3. Provide the entire article text to OpenAI for summarization.
-            4. Return a well-structured summary for SAR teams."""
+            1. Ask the user for four keywords to search for SAR news.
+            2. Search for news articles that contain all four keywords.
+            3. Use OpenAI to determine if the article is SAR-relevant.
+            4. If relevant, summarize the article using OpenAI.
+            5. Return only SAR-related summaries."""
         )
         self.newsapi_key = os.getenv("NEWSAPI_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=self.openai_api_key)
-        
-        # Expanded SAR-related keywords for better filtering
-        self.keywords = [
-            "search and rescue", "SAR team", "missing person", "lost hiker", "emergency response",
-            "disaster response", "rescue operation", "coast guard", "helicopter rescue", "boat rescue",
-            "flood rescue", "earthquake response", "landslide rescue", "avalanche rescue", "trapped survivors",
-            "fire rescue", "wilderness survival", "dive rescue", "mountain rescue", "airlift operation",
-            "urban search and rescue", "natural disaster response", "lifesaving operation", "first responders",
-            "emergency evacuation", "collapsed building rescue", "tornado rescue", "cyclone survivors",
-            "water rescue", "swiftwater rescue", "hazardous materials rescue", "volunteer rescue teams",
-            "disaster relief", "medical evacuation", "first aid response", "disaster recovery", "lost climber",
-            "hiker found", "air rescue", "drowning victim rescue", "wildfire response", "earthquake victim search"
-        ]
-        self.sources = ["bbc-news", "cnn", "cbc-news", "reuters", "al-jazeera-english"]
 
-    def search_news(self):
+    def get_keywords_from_user(self):
         """
-        Searches for SAR-related articles using NewsAPI.
+        Ask the user for four search keywords.
+        Returns:
+            list: A list of four keywords.
+        """
+        print("\nEnter four keywords to search for relevant SAR news articles.")
+        keywords = []
+        for i in range(4):
+            keyword = input(f"Keyword {i + 1}: ").strip().lower()
+            keywords.append(keyword)
+        return keywords
+
+    def search_news(self, keywords):
+        """
+        Searches for SAR-related articles using NewsAPI based on user keywords.
+        Args:
+            keywords (list): List of four user-provided keywords.
         Returns:
             list: A list of relevant article URLs.
         """
         if not self.newsapi_key:
             return {"error": "NewsAPI key missing. Please add it to .env."}
-    
+
+        query = " AND ".join(keywords)  # ✅ Search for articles containing all four keywords
         base_url = "https://newsapi.org/v2/everything"
-        headers = {"Authorization": self.newsapi_key}
-    
-        selected_keywords = self.keywords[:5]  # ✅ Limit to 5 keywords per request to avoid query errors
-        query = " OR ".join(selected_keywords)
-    
         params = {
             "q": query,  
-            "language": "en",  # ✅ Only fetch English news
-            "sortBy": "publishedAt",  
-            "pageSize": 5,  # ✅ Limit results to 5 articles per query
+            "language": "en",
+            "sortBy": "publishedAt",
+            "pageSize": 5,  # ✅ Limit to 5 articles per request
             "apiKey": self.newsapi_key
         }
-    
-        response = requests.get(base_url, params=params, headers=headers)
-    
+
+        response = requests.get(base_url, params=params)
+
         if response.status_code != 200:
             return {"error": f"Failed to fetch news articles. Status code: {response.status_code}, Response: {response.text}"}
-    
+
         articles = response.json().get("articles", [])
         article_urls = [article["url"] for article in articles if "url" in article]
-    
+
         return article_urls if article_urls else {"error": "No relevant articles found."}
 
-    def fetch_full_article(self, url: str) -> str:
+    def fetch_full_article(self, url):
         """
         Fetches the full text of an article.
         Args:
@@ -85,7 +83,7 @@ class MediaAnalysisAgent(SARBaseAgent):
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
 
-            # Remove scripts, styles, and non-content sections
+            # Remove scripts, styles, and irrelevant sections
             for tag in soup(["script", "style", "footer", "nav"]):
                 tag.extract()
 
@@ -97,7 +95,38 @@ class MediaAnalysisAgent(SARBaseAgent):
         except requests.RequestException as e:
             return f"Error fetching article: {str(e)}"
 
-    def summarize_with_openai(self, full_text: str) -> str:
+    def check_relevance_with_openai(self, article_text, keywords):
+        """
+        Uses OpenAI to determine if the article is relevant to SAR.
+        Args:
+            article_text (str): The full article text.
+            keywords (list): The user-provided keywords.
+        Returns:
+            bool: True if relevant, False otherwise.
+        """
+        if not article_text or article_text.startswith("Error:"):
+            return False
+
+        prompt = f"""
+        Determine if the following article is relevant to Search and Rescue (SAR) operations based on the context of these keywords: {', '.join(keywords)}.
+        If the article is about SAR-related missions (e.g., rescuing lost people, emergency response, disaster recovery), return 'Yes'.
+        Otherwise, return 'No'.
+
+        Article text:
+        {article_text[:1500]}  # ✅ Limit to 1500 characters to avoid long processing times
+        """
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            relevance_response = response.choices[0].message.content.strip().lower()
+            return "yes" in relevance_response
+        except Exception as e:
+            return False  # Assume not relevant if OpenAI check fails
+
+    def summarize_with_openai(self, full_text):
         """
         Uses OpenAI GPT-4o-mini to generate a summary of the article.
         Args:
@@ -110,7 +139,7 @@ class MediaAnalysisAgent(SARBaseAgent):
 
         prompt = f"""
         Summarize the following Search and Rescue (SAR) news report in a professional and concise manner:
-        {full_text}
+        {full_text[:2000]}  # ✅ Limit to 2000 characters for efficiency
         """
 
         try:
@@ -124,32 +153,36 @@ class MediaAnalysisAgent(SARBaseAgent):
 
     def analyze_media(self):
         """
-        Searches for relevant SAR articles, fetches their content, and summarizes them.
+        Searches for relevant SAR articles, verifies relevance with OpenAI, and summarizes them.
         Returns:
             list: A list of analyzed articles with summaries.
         """
-        article_urls = self.search_news()
-        if isinstance(article_urls, dict):  # Check if an error was returned
+        keywords = self.get_keywords_from_user()
+        article_urls = self.search_news(keywords)
+
+        if isinstance(article_urls, dict) and "error" in article_urls:
             return article_urls
 
         results = []
         for url in article_urls:
             article_text = self.fetch_full_article(url)
-            summary = self.summarize_with_openai(article_text) if article_text else "No relevant content found."
+
+            # ✅ Check with OpenAI if the article is SAR-relevant
+            if not self.check_relevance_with_openai(article_text, keywords):
+                continue  # Skip irrelevant articles
+
+            summary = self.summarize_with_openai(article_text)
             
             results.append({
                 "url": url,
-                "full_text": article_text[:500] + "...",  # Show preview of full article
                 "summary": summary
             })
 
-        return results
+        return results if results else [{"error": "No SAR-related articles found after verification."}]
 
-    def process_request(self, message: dict):
+    def process_request(self, message):
         """
-        Handle incoming requests from other agents or users.
-        Args:
-            message (dict): Dictionary containing the request type.
+        Handle incoming requests from users.
         Returns:
             dict: Processed results.
         """
