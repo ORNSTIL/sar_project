@@ -47,18 +47,30 @@ class MediaAnalysisAgent(SARBaseAgent):
         """
         if not self.newsapi_key:
             return {"error": "NewsAPI key missing. Please add it to .env."}
-
-        query = "%20OR%20".join(self.keywords)  # Format keywords for NewsAPI
-        url = f"https://newsapi.org/v2/everything?q={query}&apiKey={self.newsapi_key}"
-        response = requests.get(url)
-
+    
+        base_url = "https://newsapi.org/v2/everything"
+        headers = {"Authorization": self.newsapi_key}
+    
+        selected_keywords = self.keywords[:5]  # ✅ Limit to 5 keywords per request to avoid query errors
+        query = " OR ".join(selected_keywords)
+    
+        params = {
+            "q": query,  
+            "language": "en",  # ✅ Only fetch English news
+            "sortBy": "publishedAt",  
+            "pageSize": 5,  # ✅ Limit results to 5 articles per query
+            "apiKey": self.newsapi_key
+        }
+    
+        response = requests.get(base_url, params=params, headers=headers)
+    
         if response.status_code != 200:
-            return {"error": f"Failed to fetch news articles. Status code: {response.status_code}"}
-
+            return {"error": f"Failed to fetch news articles. Status code: {response.status_code}, Response: {response.text}"}
+    
         articles = response.json().get("articles", [])
         article_urls = [article["url"] for article in articles if "url" in article]
-
-        return article_urls[:5]  # Return top 5 article URLs
+    
+        return article_urls if article_urls else {"error": "No relevant articles found."}
 
     def fetch_full_article(self, url: str) -> str:
         """
