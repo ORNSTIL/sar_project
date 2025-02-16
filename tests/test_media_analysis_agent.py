@@ -35,3 +35,11 @@ def test_analyze_media_success(agent):
     with patch('sar_project.agents.media_analysis_agent.MediaAnalysisAgent.fetch_web_content', return_value=html_content):
         result = agent.analyze_media("http://example.com")
         assert "SAR team" in result["summary"]
+
+def test_analyze_media_no_relevant_content(agent):
+    html_content = "<html><body><p>This is an unrelated news article.</p></body></html>"
+    with patch('sar_project.agents.media_analysis_agent.MediaAnalysisAgent.fetch_web_content', return_value=html_content):
+        result = agent.analyze_media("http://example.com")
+        assert result["summary"] == "No relevant content found."
+        assert len(result["relevant_content"]) == 0
+
