@@ -1,12 +1,12 @@
 import requests
 from bs4 import BeautifulSoup
 import re
-import json
 import os
 from dotenv import load_dotenv
+from openai import OpenAI
 from sar_project.agents.base_agent import SARBaseAgent
 
-# Load environment variables (API keys)
+# Load API keys from .env file
 load_dotenv()
 
 class MediaAnalysisAgent(SARBaseAgent):
@@ -17,13 +17,27 @@ class MediaAnalysisAgent(SARBaseAgent):
             system_message="""You monitor and analyze online media sources (news articles, social media) to extract and summarize 
             information relevant to SAR missions. Your role is to:
             1. Search for SAR-related articles from news sources.
-            2. Scrape articles from multiple news sites.
-            3. Extract and summarize relevant information.
-            4. Provide real-time updates when new relevant stories appear."""
+            2. Scrape articles that contain relevant SAR keywords.
+            3. Provide the entire article text to OpenAI for summarization.
+            4. Return a well-structured summary for SAR teams."""
         )
         self.newsapi_key = os.getenv("NEWSAPI_KEY")
-        self.keywords = ["missing person", "search and rescue", "lost hiker", "emergency response"]
-        self.sources = ["bbc-news", "cnn", "cbc-news", "reuters", "al-jazeera-english"]  # NewsAPI sources
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.client = OpenAI(api_key=self.openai_api_key)
+        
+        # Expanded SAR-related keywords for better filtering
+        self.keywords = [
+            "search and rescue", "SAR team", "missing person", "lost hiker", "emergency response",
+            "disaster response", "rescue operation", "coast guard", "helicopter rescue", "boat rescue",
+            "flood rescue", "earthquake response", "landslide rescue", "avalanche rescue", "trapped survivors",
+            "fire rescue", "wilderness survival", "dive rescue", "mountain rescue", "airlift operation",
+            "urban search and rescue", "natural disaster response", "lifesaving operation", "first responders",
+            "emergency evacuation", "collapsed building rescue", "tornado rescue", "cyclone survivors",
+            "water rescue", "swiftwater rescue", "hazardous materials rescue", "volunteer rescue teams",
+            "disaster relief", "medical evacuation", "first aid response", "disaster recovery", "lost climber",
+            "hiker found", "air rescue", "drowning victim rescue", "wildfire response", "earthquake victim search"
+        ]
+        self.sources = ["bbc-news", "cnn", "cbc-news", "reuters", "al-jazeera-english"]
 
     def search_news(self):
         """
@@ -34,7 +48,8 @@ class MediaAnalysisAgent(SARBaseAgent):
         if not self.newsapi_key:
             return {"error": "NewsAPI key missing. Please add it to .env."}
 
-        url = f"https://newsapi.org/v2/everything?q=search%20and%20rescue&apiKey={self.newsapi_key}"
+        query = "%20OR%20".join(self.keywords)  # Format keywords for NewsAPI
+        url = f"https://newsapi.org/v2/everything?q={query}&apiKey={self.newsapi_key}"
         response = requests.get(url)
 
         if response.status_code != 200:
@@ -45,57 +60,61 @@ class MediaAnalysisAgent(SARBaseAgent):
 
         return article_urls[:5]  # Return top 5 article URLs
 
-    def fetch_web_content(self, url: str) -> str:
+    def fetch_full_article(self, url: str) -> str:
         """
-        Fetch HTML content from a given URL.
+        Fetches the full text of an article.
         Args:
             url (str): The website URL to scrape.
         Returns:
-            str: Extracted HTML content or error message.
+            str: Extracted full article text or error message.
         """
         try:
             response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
             response.raise_for_status()
-            return response.text
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            # Remove scripts, styles, and non-content sections
+            for tag in soup(["script", "style", "footer", "nav"]):
+                tag.extract()
+
+            paragraphs = [p.get_text() for p in soup.find_all(["p", "div", "span"]) if len(p.get_text()) > 50]  
+            article_text = " ".join(paragraphs)
+
+            return article_text if article_text else "Error: Could not extract article content."
+
         except requests.RequestException as e:
-            return f"Error fetching content: {str(e)}"
+            return f"Error fetching article: {str(e)}"
 
-    def extract_relevant_text(self, html: str) -> list:
+    def summarize_with_openai(self, full_text: str) -> str:
         """
-        Extract paragraphs from HTML content and filter based on keywords.
+        Uses OpenAI GPT-4o-mini to generate a summary of the article.
         Args:
-            html (str): HTML source content.
+            full_text (str): The full article text.
         Returns:
-            list: Relevant text snippets containing keywords.
+            str: AI-generated summary.
         """
-        soup = BeautifulSoup(html, "html.parser")
-        paragraphs = [p.get_text() for p in soup.find_all(["p", "div", "span"])]  # Extract from <p>, <div>, and <span>
-        
-        relevant_sentences = [
-            sentence for paragraph in paragraphs
-            for sentence in re.split(r'(?<=[.!?]) +', paragraph)
-            if any(kw in sentence.lower() for kw in self.keywords)
-        ]
-        
-        return relevant_sentences[:5]  # Return the top 5 relevant sentences
-
-    def summarize_text(self, text_list: list) -> str:
-        """
-        Generate a summary based on extracted text.
-        Args:
-            text_list (list): List of relevant sentences.
-        Returns:
-            str: Summarized content.
-        """
-        if not text_list:
+        if not full_text or full_text.startswith("Error:"):
             return "No relevant content found."
-        return " ".join(text_list[:3])  # Simple summary using first 3 relevant sentences
+
+        prompt = f"""
+        Summarize the following Search and Rescue (SAR) news report in a professional and concise manner:
+        {full_text}
+        """
+
+        try:
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"OpenAI summarization error: {str(e)}"
 
     def analyze_media(self):
         """
-        Searches for relevant SAR articles and analyzes them.
+        Searches for relevant SAR articles, fetches their content, and summarizes them.
         Returns:
-            dict: A dictionary of analyzed articles with summaries.
+            list: A list of analyzed articles with summaries.
         """
         article_urls = self.search_news()
         if isinstance(article_urls, dict):  # Check if an error was returned
@@ -103,13 +122,12 @@ class MediaAnalysisAgent(SARBaseAgent):
 
         results = []
         for url in article_urls:
-            html_content = self.fetch_web_content(url)
-            relevant_content = self.extract_relevant_text(html_content)
-            summary = self.summarize_text(relevant_content)
+            article_text = self.fetch_full_article(url)
+            summary = self.summarize_with_openai(article_text) if article_text else "No relevant content found."
             
             results.append({
                 "url": url,
-                "relevant_content": relevant_content,
+                "full_text": article_text[:500] + "...",  # Show preview of full article
                 "summary": summary
             })
 
