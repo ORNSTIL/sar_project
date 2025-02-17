@@ -25,18 +25,14 @@ class MediaAnalysisAgent(SARBaseAgent):
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
         self.client = OpenAI(api_key=self.openai_api_key)
 
-    def get_keywords_from_user(self):
+    def get_keyword_from_user(self):
         """
-        Ask the user for four search keywords.
+        Ask the user for a single search keyword.
         Returns:
-            list: A list of four keywords.
+            str: The keyword entered by the user.
         """
-        print("\nEnter four keywords to search for relevant SAR news articles.")
-        keywords = []
-        for i in range(4):
-            keyword = input(f"Keyword {i + 1}: ").strip().lower()
-            keywords.append(keyword)
-        return keywords
+        keyword = input("\nEnter a keyword to search for relevant SAR news articles: ").strip().lower()
+        return keyword
 
     def fetch_sar_news(self):
         """
@@ -179,23 +175,27 @@ def scrape_marinelink_news(self, url):
         """
         Scrapes SAR news, verifies relevance with OpenAI, and summarizes them.
         """
-        keywords = self.get_keywords_from_user()
+        keyword = self.get_keyword_from_user()
         articles = self.fetch_sar_news()
-
+    
         results = []
         for article in articles:
-            if self.check_relevance_with_openai(article["content"], keywords):
+            if self.check_relevance_with_openai(article["content"], keyword):
                 summary = self.summarize_with_openai(article["content"])
                 results.append({"url": article["url"], "summary": summary})
-
+    
         return results if results else [{"error": "No SAR-related articles found after verification."}]
 
-    def check_relevance_with_openai(self, article_text, keywords):
+
+    def check_relevance_with_openai(self, article_text, keyword):
         """
         Uses OpenAI to determine if the article is relevant to SAR.
         """
         prompt = f"""
-        Determine if the following article is relevant to Search and Rescue (SAR) operations based on these keywords: {', '.join(keywords)}.
+        Determine if the following article is relevant to Search and Rescue (SAR) operations based on the keyword: {keyword}.
+        If the article is related to SAR (e.g., rescues, missing persons, disasters), return 'Yes'.
+        Otherwise, return 'No'.
+    
         Article:
         {article_text[:1500]}
         """
