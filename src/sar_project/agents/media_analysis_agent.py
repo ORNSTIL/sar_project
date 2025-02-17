@@ -132,7 +132,6 @@ class MediaAnalysisAgent(SARBaseAgent):
         Returns:
             dict: Processed results.
         """
-        print(f"Using NewsAPI Key: {self.news_api_key}")
 
         if message.get("action") == "search_news":
             return self.analyze_media()
