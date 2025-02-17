@@ -42,44 +42,40 @@ class MediaAnalysisAgent(SARBaseAgent):
 
     def fetch_news_articles(self, query):
         """
-        Fetches news articles from NewsAPI.
+        Fetches news articles using GNews API.
         Args:
             query (str): The search query (user input).
         Returns:
             list: A list of news articles with 'title', 'url', and 'content'.
         """
         if not query:
-            print("\n⚠️ No search query provided. Skipping NewsAPI request.")
+            print("\n⚠️ No search query provided. Skipping GNews API request.")
             return []
-
-        url = f"https://newsapi.org/v2/top-headlines?q={query}&language=en&apiKey={self.news_api_key}"
-
+    
+        gnews_api_key = os.getenv("GNEWS_API_KEY")
+        url = f"https://gnews.io/api/v4/search?q={query}&token={gnews_api_key}&lang=en&max=10"
+    
         try:
             response = requests.get(url)
             if response.status_code == 401:
-                print("\n❌ Error: Unauthorized. Check if your NewsAPI key is valid in the .env file.")
+                print("\n❌ Error: Unauthorized. Check if your GNews API key is valid.")
                 return []
             elif response.status_code != 200:
                 print(f"\n❌ Error fetching news articles. Status code: {response.status_code}")
                 return []
-
+    
             articles = response.json().get("articles", [])
-            print(f"\n📡 Debug: Received {len(articles)} articles from NewsAPI.")  # DEBUG
-
-            # Ensure articles always return valid content
-            parsed_articles = [
+            print(f"\n📡 Debug: Received {len(articles)} articles from GNews API.")
+    
+            return [
                 {
                     "title": art.get("title", "No Title Available"),
                     "url": art.get("url", "No URL Available"),
-                    "content": art.get("description") or art.get("content") or "No content available"
+                    "content": art.get("description") or "No content available"
                 }
                 for art in articles
             ]
-
-            if parsed_articles:
-                print(f"\n📡 Debug: First fetched article -> {parsed_articles[0]}")
-            return parsed_articles
-
+    
         except Exception as e:
             print(f"\n❌ Error fetching news articles: {e}")
             return []
