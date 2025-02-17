@@ -173,34 +173,18 @@ class MediaAnalysisAgent(SARBaseAgent):
 
     def analyze_media(self):
         """
-        Scrapes SAR news, verifies relevance with OpenAI, and summarizes them.
+        Scrapes SAR news, summarizes articles without OpenAI verification, and returns them.
+        Returns:
+            list: A list of analyzed articles with summaries.
         """
         keyword = self.get_keyword_from_user()
         articles = self.fetch_sar_news()
     
         results = []
         for article in articles:
-            if self.check_relevance_with_openai(article["content"], keyword):
-                summary = self.summarize_with_openai(article["content"])
-                results.append({"url": article["url"], "summary": summary})
+            summary = self.summarize_with_openai(article["content"])  # Summarize directly
+            results.append({"url": article["url"], "summary": summary})
     
-        return results if results else [{"error": "No SAR-related articles found after verification."}]
+        return results if results else [{"error": "No SAR-related articles found."}]
 
-    def check_relevance_with_openai(self, article_text, keyword):
-        """
-        Uses OpenAI to determine if the article is relevant to SAR.
-        """
-        prompt = f"""
-        Determine if the following article is relevant to Search and Rescue (SAR) operations based on the keyword: {keyword}.
-        If the article is related to SAR (e.g., rescues, missing persons, disasters), return 'Yes'.
-        Otherwise, return 'No'.
-    
-        Article:
-        {article_text[:1500]}
-        """
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return "yes" in response.choices[0].message.content.strip().lower()
 
