@@ -65,33 +65,33 @@ class MediaAnalysisAgent(SARBaseAgent):
 
 
     def scrape_nasar_news(self, url):
-    """
-    Scrapes NASAR News for SAR articles.
-    """
-    articles = []
-    try:
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        for article in soup.find_all("article"):
-            title = article.find("h2").text.strip() if article.find("h2") else "No Title"
-            link_tag = article.find("a", href=True)
-            link = link_tag["href"] if link_tag else None
-            full_url = link if link and "http" in link else f"https://nasar.org{link}" if link else None
-
-            if not full_url:
-                continue  # Skip if no valid URL
-
-            content = self.fetch_full_article(full_url)
-            if not content or content.startswith("Error"):
-                continue  # Skip if no content
-
-            articles.append({"title": title, "url": full_url, "content": content})
-
-    except Exception as e:
-        print(f"Error fetching NASAR news: {e}")
-
-    return articles
+        """
+        Scrapes NASAR News for SAR articles.
+        """
+        articles = []
+        try:
+            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+            soup = BeautifulSoup(response.text, "html.parser")
+    
+            for article in soup.find_all("article"):
+                title = article.find("h2").text.strip() if article.find("h2") else "No Title"
+                link_tag = article.find("a", href=True)
+                link = link_tag["href"] if link_tag else None
+                full_url = link if link and "http" in link else f"https://nasar.org{link}" if link else None
+    
+                if not full_url:
+                    continue  # Skip if no valid URL
+    
+                content = self.fetch_full_article(full_url)
+                if not content or content.startswith("Error"):
+                    continue  # Skip if no content
+    
+                articles.append({"title": title, "url": full_url, "content": content})
+    
+        except Exception as e:
+            print(f"Error fetching NASAR news: {e}")
+    
+        return articles
 
 
 def scrape_ksby_news(self, url):
