@@ -58,14 +58,14 @@ class MediaAnalysisAgent(SARBaseAgent):
         return articles
 
     def process_request(self, message):
-    """
-    Handle incoming requests from users.
-    Returns:
-        dict: Processed results.
-    """
-    if message.get("action") == "search_news":
-        return self.analyze_media()
-    return {"error": "Invalid request. Use {'action': 'search_news'} to fetch SAR news."}
+        """
+        Handle incoming requests from users.
+        Returns:
+            dict: Processed results.
+        """
+        if message.get("action") == "search_news":
+            return self.analyze_media()
+        return {"error": "Invalid request. Use {'action': 'search_news'} to fetch SAR news."}
 
 
     def scrape_nasar_news(self, url):
