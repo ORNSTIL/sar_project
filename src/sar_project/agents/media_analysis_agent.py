@@ -153,54 +153,54 @@ class MediaAnalysisAgent(SARBaseAgent):
     
         return articles
     
-        def fetch_full_article(self, url):
-            """
-            Fetches the full text of an article.
-            """
-            try:
-                response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, "html.parser")
+    def fetch_full_article(self, url):
+        """
+        Fetches the full text of an article.
+        """
+        try:
+            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+            response.raise_for_status()
+            soup = BeautifulSoup(response.text, "html.parser")
+
+            for tag in soup(["script", "style", "footer", "nav"]):
+                tag.extract()
+
+            paragraphs = [p.get_text() for p in soup.find_all("p") if len(p.get_text()) > 50]
+            return " ".join(paragraphs)
+
+        except Exception as e:
+            return f"Error fetching article: {str(e)}"
+
+    def analyze_media(self):
+        """
+        Scrapes SAR news, verifies relevance with OpenAI, and summarizes them.
+        """
+        keyword = self.get_keyword_from_user()
+        articles = self.fetch_sar_news()
     
-                for tag in soup(["script", "style", "footer", "nav"]):
-                    tag.extract()
+        results = []
+        for article in articles:
+            if self.check_relevance_with_openai(article["content"], keyword):
+                summary = self.summarize_with_openai(article["content"])
+                results.append({"url": article["url"], "summary": summary})
     
-                paragraphs = [p.get_text() for p in soup.find_all("p") if len(p.get_text()) > 50]
-                return " ".join(paragraphs)
+        return results if results else [{"error": "No SAR-related articles found after verification."}]
+
+    def check_relevance_with_openai(self, article_text, keyword):
+        """
+        Uses OpenAI to determine if the article is relevant to SAR.
+        """
+        prompt = f"""
+        Determine if the following article is relevant to Search and Rescue (SAR) operations based on the keyword: {keyword}.
+        If the article is related to SAR (e.g., rescues, missing persons, disasters), return 'Yes'.
+        Otherwise, return 'No'.
     
-            except Exception as e:
-                return f"Error fetching article: {str(e)}"
-    
-        def analyze_media(self):
-            """
-            Scrapes SAR news, verifies relevance with OpenAI, and summarizes them.
-            """
-            keyword = self.get_keyword_from_user()
-            articles = self.fetch_sar_news()
-        
-            results = []
-            for article in articles:
-                if self.check_relevance_with_openai(article["content"], keyword):
-                    summary = self.summarize_with_openai(article["content"])
-                    results.append({"url": article["url"], "summary": summary})
-        
-            return results if results else [{"error": "No SAR-related articles found after verification."}]
-    
-        def check_relevance_with_openai(self, article_text, keyword):
-            """
-            Uses OpenAI to determine if the article is relevant to SAR.
-            """
-            prompt = f"""
-            Determine if the following article is relevant to Search and Rescue (SAR) operations based on the keyword: {keyword}.
-            If the article is related to SAR (e.g., rescues, missing persons, disasters), return 'Yes'.
-            Otherwise, return 'No'.
-        
-            Article:
-            {article_text[:1500]}
-            """
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            return "yes" in response.choices[0].message.content.strip().lower()
-    
+        Article:
+        {article_text[:1500]}
+        """
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return "yes" in response.choices[0].message.content.strip().lower()
+
