@@ -35,8 +35,10 @@ class MediaAnalysisAgent(SARBaseAgent):
             word = input(f"Word {i + 1}: ").strip()
             if word:
                 keywords.append(word)
-        
-        return " ".join(keywords) if keywords else None  # Return combined string or None
+
+        query = " ".join(keywords) if keywords else None
+        print(f"\n📡 Debug: User Search Query -> {query}")
+        return query
 
     def fetch_news_articles(self, query):
         """
@@ -47,10 +49,11 @@ class MediaAnalysisAgent(SARBaseAgent):
             list: A list of news articles with 'title', 'url', and 'content'.
         """
         if not query:
+            print("\n⚠️ No search query provided. Skipping NewsAPI request.")
             return []
-    
+
         url = f"https://newsapi.org/v2/top-headlines?q={query}&language=en&apiKey={self.news_api_key}"
-    
+
         try:
             response = requests.get(url)
             if response.status_code == 401:
@@ -59,21 +62,27 @@ class MediaAnalysisAgent(SARBaseAgent):
             elif response.status_code != 200:
                 print(f"\n❌ Error fetching news articles. Status code: {response.status_code}")
                 return []
-    
+
             articles = response.json().get("articles", [])
-            return [
+            print(f"\n📡 Debug: Received {len(articles)} articles from NewsAPI.")  # DEBUG
+
+            # Ensure articles always return valid content
+            parsed_articles = [
                 {
                     "title": art.get("title", "No Title Available"),
                     "url": art.get("url", "No URL Available"),
-                    "content": art.get("description", "No content available")  # Ensure content is never None
+                    "content": art.get("description") or art.get("content") or "No content available"
                 }
                 for art in articles
             ]
-    
+
+            if parsed_articles:
+                print(f"\n📡 Debug: First fetched article -> {parsed_articles[0]}")
+            return parsed_articles
+
         except Exception as e:
             print(f"\n❌ Error fetching news articles: {e}")
             return []
-
 
     def check_relevance_with_openai(self, article_text, query):
         """
@@ -85,13 +94,14 @@ class MediaAnalysisAgent(SARBaseAgent):
             bool: True if the article is relevant, False otherwise.
         """
         if not article_text or article_text == "No content available":
+            print("\n⚠️ Skipping article due to lack of valid content.")
             return False, "Article has no valid content to analyze."
-    
+
         prompt = f"""
         Determine if the following article is relevant to Search and Rescue (SAR) efforts based on the search words: {query}.
         If the article is related to SAR operations (e.g., rescues, missing persons, disaster response), return 'Yes' with a brief explanation.
         Otherwise, return 'No'.
-    
+
         Article:
         {article_text[:1500]}
         """
@@ -100,8 +110,10 @@ class MediaAnalysisAgent(SARBaseAgent):
             messages=[{"role": "user", "content": prompt}]
         )
         response_text = response.choices[0].message.content.strip().lower()
-        
-        return "yes" in response_text, response_text
+
+        print(f"\n📡 Debug: OpenAI Response for relevance -> {response_text}")  # DEBUG
+
+        return "yes" in response_text or "likely" in response_text, response_text
 
     def summarize_with_openai(self, article_text):
         """
@@ -120,7 +132,10 @@ class MediaAnalysisAgent(SARBaseAgent):
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}]
         )
-        return response.choices[0].message.content.strip()
+        summary = response.choices[0].message.content.strip()
+
+        print(f"\n📡 Debug: OpenAI Summary -> {summary[:200]}...")  # DEBUG
+        return summary
 
     def analyze_media(self):
         """
@@ -143,7 +158,11 @@ class MediaAnalysisAgent(SARBaseAgent):
                     "relevance": relevance_explanation
                 })
 
-        return results if results else [{"error": "No SAR-related articles found after verification."}]
+        if not results:
+            print("\n⚠️ No SAR-related articles found after verification.")
+            return [{"error": "No SAR-related articles found after verification."}]
+
+        return results
 
     def process_request(self, message):
         """
@@ -151,7 +170,6 @@ class MediaAnalysisAgent(SARBaseAgent):
         Returns:
             dict: Processed results.
         """
-
         if message.get("action") == "search_news":
             return self.analyze_media()
         return {"error": "Invalid request. Use {'action': 'search_news'} to fetch SAR news."}
