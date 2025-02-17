@@ -48,16 +48,32 @@ class MediaAnalysisAgent(SARBaseAgent):
         """
         if not query:
             return []
-
-        url = f"https://newsapi.org/v2/everything?q={query}&language=en&apiKey={self.news_api_key}"
-        response = requests.get(url)
-        
-        if response.status_code != 200:
-            print(f"Error fetching news articles. Status code: {response.status_code}")
+    
+        url = f"https://newsapi.org/v2/top-headlines?q={query}&language=en&apiKey={self.news_api_key}"
+    
+        try:
+            response = requests.get(url)
+            if response.status_code == 401:
+                print("\n❌ Error: Unauthorized. Check if your NewsAPI key is valid in the .env file.")
+                return []
+            elif response.status_code != 200:
+                print(f"\n❌ Error fetching news articles. Status code: {response.status_code}")
+                return []
+    
+            articles = response.json().get("articles", [])
+            return [
+                {
+                    "title": art.get("title", "No Title Available"),
+                    "url": art.get("url", "No URL Available"),
+                    "content": art.get("description", "No content available")  # Ensure content is never None
+                }
+                for art in articles
+            ]
+    
+        except Exception as e:
+            print(f"\n❌ Error fetching news articles: {e}")
             return []
-        
-        articles = response.json().get("articles", [])
-        return [{"title": art["title"], "url": art["url"], "content": art.get("description", "No content available")} for art in articles]
+
 
     def check_relevance_with_openai(self, article_text, query):
         """
@@ -68,11 +84,14 @@ class MediaAnalysisAgent(SARBaseAgent):
         Returns:
             bool: True if the article is relevant, False otherwise.
         """
+        if not article_text or article_text == "No content available":
+            return False, "Article has no valid content to analyze."
+    
         prompt = f"""
         Determine if the following article is relevant to Search and Rescue (SAR) efforts based on the search words: {query}.
         If the article is related to SAR operations (e.g., rescues, missing persons, disaster response), return 'Yes' with a brief explanation.
         Otherwise, return 'No'.
-
+    
         Article:
         {article_text[:1500]}
         """
