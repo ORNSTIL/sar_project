@@ -69,74 +69,93 @@ class MediaAnalysisAgent(SARBaseAgent):
 
 
     def scrape_nasar_news(self, url):
-        """
-        Scrapes NASAR News for SAR articles.
-        Args:
-            url (str): NASAR News URL.
-        Returns:
-            list: List of articles with 'title', 'url', and 'content'.
-        """
-        articles = []
-        try:
-            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-            soup = BeautifulSoup(response.text, "html.parser")
+    """
+    Scrapes NASAR News for SAR articles.
+    """
+    articles = []
+    try:
+        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        soup = BeautifulSoup(response.text, "html.parser")
 
-            for article in soup.find_all("article"):
-                title = article.find("h2").text if article.find("h2") else "No Title"
-                link = article.find("a")["href"] if article.find("a") else None
-                if link:
-                    full_url = link if "http" in link else f"https://nasar.org{link}"
-                    content = self.fetch_full_article(full_url)
-                    articles.append({"title": title, "url": full_url, "content": content})
+        for article in soup.find_all("article"):
+            title = article.find("h2").text.strip() if article.find("h2") else "No Title"
+            link_tag = article.find("a", href=True)
+            link = link_tag["href"] if link_tag else None
+            full_url = link if link and "http" in link else f"https://nasar.org{link}" if link else None
 
-        except Exception as e:
-            print(f"Error fetching NASAR news: {e}")
+            if not full_url:
+                continue  # Skip if no valid URL
 
-        return articles
+            content = self.fetch_full_article(full_url)
+            if not content or content.startswith("Error"):
+                continue  # Skip if no content
 
-    def scrape_ksby_news(self, url):
-        """
-        Scrapes KSBY News for SAR articles.
-        """
-        articles = []
-        try:
-            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-            soup = BeautifulSoup(response.text, "html.parser")
+            articles.append({"title": title, "url": full_url, "content": content})
 
-            for article in soup.find_all("article"):
-                title = article.find("h2").text if article.find("h2") else "No Title"
-                link = article.find("a")["href"] if article.find("a") else None
-                if link:
-                    full_url = link if "http" in link else f"https://www.ksby.com{link}"
-                    content = self.fetch_full_article(full_url)
-                    articles.append({"title": title, "url": full_url, "content": content})
+    except Exception as e:
+        print(f"Error fetching NASAR news: {e}")
 
-        except Exception as e:
-            print(f"Error fetching KSBY news: {e}")
+    return articles
 
-        return articles
 
-    def scrape_marinelink_news(self, url):
-        """
-        Scrapes MarineLink for SAR articles.
-        """
-        articles = []
-        try:
-            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-            soup = BeautifulSoup(response.text, "html.parser")
+def scrape_ksby_news(self, url):
+    """
+    Scrapes KSBY News for SAR articles.
+    """
+    articles = []
+    try:
+        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        soup = BeautifulSoup(response.text, "html.parser")
 
-            for article in soup.find_all("article"):
-                title = article.find("h2").text if article.find("h2") else "No Title"
-                link = article.find("a")["href"] if article.find("a") else None
-                if link:
-                    full_url = link if "http" in link else f"https://www.marinelink.com{link}"
-                    content = self.fetch_full_article(full_url)
-                    articles.append({"title": title, "url": full_url, "content": content})
+        for article in soup.find_all("article"):
+            title = article.find("h2").text.strip() if article.find("h2") else "No Title"
+            link_tag = article.find("a", href=True)
+            link = link_tag["href"] if link_tag else None
+            full_url = link if link and "http" in link else f"https://www.ksby.com{link}" if link else None
 
-        except Exception as e:
-            print(f"Error fetching MarineLink news: {e}")
+            if not full_url:
+                continue  # Skip if no valid URL
 
-        return articles
+            content = self.fetch_full_article(full_url)
+            if not content or content.startswith("Error"):
+                continue  # Skip if no content
+
+            articles.append({"title": title, "url": full_url, "content": content})
+
+    except Exception as e:
+        print(f"Error fetching KSBY news: {e}")
+
+    return articles
+
+
+def scrape_marinelink_news(self, url):
+    """
+    Scrapes MarineLink for SAR articles.
+    """
+    articles = []
+    try:
+        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        for article in soup.find_all("article"):
+            title = article.find("h2").text.strip() if article.find("h2") else "No Title"
+            link_tag = article.find("a", href=True)
+            link = link_tag["href"] if link_tag else None
+            full_url = link if link and "http" in link else f"https://www.marinelink.com{link}" if link else None
+
+            if not full_url:
+                continue  # Skip if no valid URL
+
+            content = self.fetch_full_article(full_url)
+            if not content or content.startswith("Error"):
+                continue  # Skip if no content
+
+            articles.append({"title": title, "url": full_url, "content": content})
+
+    except Exception as e:
+        print(f"Error fetching MarineLink news: {e}")
+
+    return articles
 
     def fetch_full_article(self, url):
         """
