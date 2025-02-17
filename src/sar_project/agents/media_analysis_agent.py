@@ -94,114 +94,113 @@ class MediaAnalysisAgent(SARBaseAgent):
         return articles
 
 
-def scrape_ksby_news(self, url):
-    """
-    Scrapes KSBY News for SAR articles.
-    """
-    articles = []
-    try:
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        for article in soup.find_all("article"):
-            title = article.find("h2").text.strip() if article.find("h2") else "No Title"
-            link_tag = article.find("a", href=True)
-            link = link_tag["href"] if link_tag else None
-            full_url = link if link and "http" in link else f"https://www.ksby.com{link}" if link else None
-
-            if not full_url:
-                continue  # Skip if no valid URL
-
-            content = self.fetch_full_article(full_url)
-            if not content or content.startswith("Error"):
-                continue  # Skip if no content
-
-            articles.append({"title": title, "url": full_url, "content": content})
-
-    except Exception as e:
-        print(f"Error fetching KSBY news: {e}")
-
-    return articles
-
-
-def scrape_marinelink_news(self, url):
-    """
-    Scrapes MarineLink for SAR articles.
-    """
-    articles = []
-    try:
-        response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        for article in soup.find_all("article"):
-            title = article.find("h2").text.strip() if article.find("h2") else "No Title"
-            link_tag = article.find("a", href=True)
-            link = link_tag["href"] if link_tag else None
-            full_url = link if link and "http" in link else f"https://www.marinelink.com{link}" if link else None
-
-            if not full_url:
-                continue  # Skip if no valid URL
-
-            content = self.fetch_full_article(full_url)
-            if not content or content.startswith("Error"):
-                continue  # Skip if no content
-
-            articles.append({"title": title, "url": full_url, "content": content})
-
-    except Exception as e:
-        print(f"Error fetching MarineLink news: {e}")
-
-    return articles
-
-    def fetch_full_article(self, url):
+    def scrape_ksby_news(self, url):
         """
-        Fetches the full text of an article.
+        Scrapes KSBY News for SAR articles.
         """
+        articles = []
         try:
-            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
-            response.raise_for_status()
+            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
             soup = BeautifulSoup(response.text, "html.parser")
-
-            for tag in soup(["script", "style", "footer", "nav"]):
-                tag.extract()
-
-            paragraphs = [p.get_text() for p in soup.find_all("p") if len(p.get_text()) > 50]
-            return " ".join(paragraphs)
-
+    
+            for article in soup.find_all("article"):
+                title = article.find("h2").text.strip() if article.find("h2") else "No Title"
+                link_tag = article.find("a", href=True)
+                link = link_tag["href"] if link_tag else None
+                full_url = link if link and "http" in link else f"https://www.ksby.com{link}" if link else None
+    
+                if not full_url:
+                    continue  # Skip if no valid URL
+    
+                content = self.fetch_full_article(full_url)
+                if not content or content.startswith("Error"):
+                    continue  # Skip if no content
+    
+                articles.append({"title": title, "url": full_url, "content": content})
+    
         except Exception as e:
-            return f"Error fetching article: {str(e)}"
-
-    def analyze_media(self):
-        """
-        Scrapes SAR news, verifies relevance with OpenAI, and summarizes them.
-        """
-        keyword = self.get_keyword_from_user()
-        articles = self.fetch_sar_news()
+            print(f"Error fetching KSBY news: {e}")
     
-        results = []
-        for article in articles:
-            if self.check_relevance_with_openai(article["content"], keyword):
-                summary = self.summarize_with_openai(article["content"])
-                results.append({"url": article["url"], "summary": summary})
+        return articles
     
-        return results if results else [{"error": "No SAR-related articles found after verification."}]
-
-
-    def check_relevance_with_openai(self, article_text, keyword):
-        """
-        Uses OpenAI to determine if the article is relevant to SAR.
-        """
-        prompt = f"""
-        Determine if the following article is relevant to Search and Rescue (SAR) operations based on the keyword: {keyword}.
-        If the article is related to SAR (e.g., rescues, missing persons, disasters), return 'Yes'.
-        Otherwise, return 'No'.
     
-        Article:
-        {article_text[:1500]}
+    def scrape_marinelink_news(self, url):
         """
-        response = self.client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        return "yes" in response.choices[0].message.content.strip().lower()
-
+        Scrapes MarineLink for SAR articles.
+        """
+        articles = []
+        try:
+            response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+            soup = BeautifulSoup(response.text, "html.parser")
+    
+            for article in soup.find_all("article"):
+                title = article.find("h2").text.strip() if article.find("h2") else "No Title"
+                link_tag = article.find("a", href=True)
+                link = link_tag["href"] if link_tag else None
+                full_url = link if link and "http" in link else f"https://www.marinelink.com{link}" if link else None
+    
+                if not full_url:
+                    continue  # Skip if no valid URL
+    
+                content = self.fetch_full_article(full_url)
+                if not content or content.startswith("Error"):
+                    continue  # Skip if no content
+    
+                articles.append({"title": title, "url": full_url, "content": content})
+    
+        except Exception as e:
+            print(f"Error fetching MarineLink news: {e}")
+    
+        return articles
+    
+        def fetch_full_article(self, url):
+            """
+            Fetches the full text of an article.
+            """
+            try:
+                response = requests.get(url, headers={'User-Agent': 'Mozilla/5.0'}, timeout=10)
+                response.raise_for_status()
+                soup = BeautifulSoup(response.text, "html.parser")
+    
+                for tag in soup(["script", "style", "footer", "nav"]):
+                    tag.extract()
+    
+                paragraphs = [p.get_text() for p in soup.find_all("p") if len(p.get_text()) > 50]
+                return " ".join(paragraphs)
+    
+            except Exception as e:
+                return f"Error fetching article: {str(e)}"
+    
+        def analyze_media(self):
+            """
+            Scrapes SAR news, verifies relevance with OpenAI, and summarizes them.
+            """
+            keyword = self.get_keyword_from_user()
+            articles = self.fetch_sar_news()
+        
+            results = []
+            for article in articles:
+                if self.check_relevance_with_openai(article["content"], keyword):
+                    summary = self.summarize_with_openai(article["content"])
+                    results.append({"url": article["url"], "summary": summary})
+        
+            return results if results else [{"error": "No SAR-related articles found after verification."}]
+    
+        def check_relevance_with_openai(self, article_text, keyword):
+            """
+            Uses OpenAI to determine if the article is relevant to SAR.
+            """
+            prompt = f"""
+            Determine if the following article is relevant to Search and Rescue (SAR) operations based on the keyword: {keyword}.
+            If the article is related to SAR (e.g., rescues, missing persons, disasters), return 'Yes'.
+            Otherwise, return 'No'.
+        
+            Article:
+            {article_text[:1500]}
+            """
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return "yes" in response.choices[0].message.content.strip().lower()
+    
