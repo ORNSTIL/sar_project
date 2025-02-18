@@ -27,9 +27,6 @@ To run the agent, you must **set up a `.env` file** in the **root directory** wi
    GNEWS_API_KEY=your_gnews_api_key_here
    ```
 
-🔹 **Replace `your_openai_api_key_here` and `your_gnews_api_key_here`** with your actual API keys.  
-🔹 **Do not share or commit your `.env` file** for security reasons.  
-
 ---
 
 ## **🔹 Activity & Sources of Knowledge**  
