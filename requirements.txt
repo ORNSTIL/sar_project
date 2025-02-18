@@ -2,3 +2,5 @@ pyautogen
 python-dotenv
 pytest
 autogen
+openai
+requests
