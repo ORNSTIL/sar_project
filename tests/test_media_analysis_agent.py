@@ -1,13 +1,10 @@
 from sar_project.agents.media_analysis_agent import MediaAnalysisAgent
 
-# Initialize the agent
 agent = MediaAnalysisAgent()
 
-# Fetch and analyze SAR news articles
 print("\n🔍 Searching for relevant SAR news articles based on your input...\n")
 result = agent.process_request({"action": "search_news"})
 
-# ✅ Check if an error occurred
 if isinstance(result, dict) and "error" in result:
     print("\n❌ Error:", result["error"])
 elif isinstance(result, list):
