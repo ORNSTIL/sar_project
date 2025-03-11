@@ -113,8 +113,10 @@ The agent **returns structured JSON** for each relevant article:
 ⚠️ No relevant SAR articles found after verification.  
 ```
 
-## ** Insights**  
+---
+
+### ** Insights**  
 From the feedback received, I learned that having both the "Found SAR-related articles" and "No SAR-related articles found" responses simultaneously was confusing for users. This was actually a bug which I did not find when testing, and I was able to fix it by updating my implementation of the **tests/test_media_analysis_agent.py** file. This bug made the output look cluttered and contradicted itself when no relevant articles were found. The suggestion to streamline this response improved the clarity and professionalism of the agent's output. Additionally, the recommendation to expand the README to include detailed instructions for setting up a Python virtual environment was valuable, as it makes sure that users with different levels of technical expertise can set up and test the agent easily.
 
-## ** Modifications**
+### ** Modifications**
 In response to the feedback, I modified the code in the file which tests the media analysis agent to ensure that the "Found SAR-related articles" message is only displayed if relevant articles are indeed found. This file is located at **tests/test_media_analysis_agent.py**. Now, if no articles pass the relevance check, only the "No SAR-related articles found" message is displayed, making the output clearer and more user-friendly. I also updated this file to send an additional message, *"Please make a new request with additional or different query words."* which I feel adds clarity to a user input which resulted in no results from the agent. Furthermore, I updated the README to include steps for setting up a Python virtual environment, similar to the instructions which Riley provided in her repository. This modification makes the setup process smoother for new users and helps prevent common errors during installation and testing.
