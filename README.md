@@ -76,11 +76,23 @@ The agent **returns structured JSON** for each relevant article:
 
 ## **🔹 How to Test the Agent**  
 ### **📍 Running Manual Tests**  
-1. **Ensure dependencies are installed**:  
+1. **Set up Python environment**:
+   ```sh
+   # Using pyenv (recommended)
+   pyenv install 3.9.6  # or your preferred version
+   pyenv local 3.9.6
+
+   # Create and activate virtual environment
+   python -m venv .venv
+   source .venv/bin/activate  # On Unix/macOS
+   # or
+   .venv\Scripts\activate     # On Windows
+   ```
+2. **Ensure dependencies are installed**:  
    ```sh
    pip install -r requirements.txt
    ```  
-2. **Run the test file**:  
+3. **Run the test file**:  
    ```sh
    python tests/test_media_analysis_agent.py
    ```  
