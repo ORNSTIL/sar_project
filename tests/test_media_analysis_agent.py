@@ -8,8 +8,11 @@ result = agent.process_request({"action": "search_news"})
 if isinstance(result, dict) and "error" in result:
     print("\n❌ Error:", result["error"])
 elif isinstance(result, list):
-    if not result:
-        print("\n❌ No relevant SAR articles found.")
+    if not result or (len(result) == 1 and "error" in result[0]):
+        if len(result) == 1 and "error" in result[0]:
+            print("\n⚠️ Please make a new request with additional or different query words.")
+        else:
+            print("\n⚠️ Please make a new request with additional or different query words.")
     else:
         print("\n✅ Found SAR-related articles:\n")
         for i, article in enumerate(result, 1):
